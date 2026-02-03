@@ -1,0 +1,6 @@
+station_id,area,zone,capacity_kw,latitude,longitude
+Station_1,Whitefield,Commercial,250,12.9698,77.7500
+Station_2,Indiranagar,Residential,150,12.9719,77.6412
+Station_3,Electronic City,Industrial,300,12.8456,77.6603
+Station_4,HSR Layout,Residential,200,12.9116,77.6476
+Station_5,MG Road,Commercial,180,12.9756,77.6050

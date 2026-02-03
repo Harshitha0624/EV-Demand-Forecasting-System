@@ -1,0 +1,77 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import joblib
+import os
+import plotly.express as px
+with st.sidebar:
+    st.markdown("## ⚡ EV Intelligence")
+    st.markdown("---")
+
+
+st.markdown(
+    """
+    <style>
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        .stMetric {
+            background-color: #f5f7fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.title("🤖 Model Diagnostics")
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+data_path = os.path.join(BASE_DIR, "data", "ev_charging_data.csv")
+model_path = os.path.join(BASE_DIR, "models", "ev_demand_model.pkl")
+
+df = pd.read_csv(data_path)
+model = joblib.load(model_path)
+
+df["datetime"] = pd.to_datetime(df["date"]) + pd.to_timedelta(df["hour"], unit="h")
+df = df.sort_values(["station_id", "datetime"])
+
+df["lag_1"] = df.groupby("station_id")["energy_kwh"].shift(1)
+df["lag_24"] = df.groupby("station_id")["energy_kwh"].shift(24)
+df["rolling_mean_3"] = (
+    df.groupby("station_id")["energy_kwh"]
+    .rolling(3)
+    .mean()
+    .reset_index(level=0, drop=True)
+)
+df["day_of_week"] = df["datetime"].dt.weekday
+df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
+
+df = df.dropna()
+df_encoded = pd.get_dummies(df, columns=["station_id"], drop_first=True)
+
+feature_cols = model.feature_names_in_
+
+split = int(len(df_encoded) * 0.8)
+
+X_test = df_encoded[feature_cols].iloc[split:]
+y_test = df_encoded["energy_kwh"].iloc[split:]
+
+y_pred = model.predict(X_test)
+
+fig = px.scatter(x=y_test, y=y_pred)
+fig.update_layout(xaxis_title="Actual", yaxis_title="Predicted")
+st.plotly_chart(fig, use_container_width=True)
+
+residuals = y_test - y_pred
+fig2 = px.histogram(residuals, nbins=30)
+st.plotly_chart(fig2, use_container_width=True)
+fig.update_layout(
+    template="plotly_dark",
+    paper_bgcolor="#0e1117",
+    plot_bgcolor="#0e1117",
+    font=dict(color="white"),
+    title_font=dict(size=20)
+)
